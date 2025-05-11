@@ -1,0 +1,124 @@
+# 1. IMPORTING LIBRARIES
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import StandardScaler
+import warnings
+warnings.filterwarnings('ignore')
+
+# 2. LOAD THE DATA
+df = pd.read_csv('/mnt/data/Stock_Data_AAPL.csv')
+print("Shape of dataset:", df.shape)
+df.head()
+		
+# 3. BASIC INFO
+print("\nBasic Info:")
+print(df.info())
+
+print("\nSummary Statistics:")
+print(df.describe())
+
+# 4. CHECK FOR NULLS
+print("\nMissing values:")
+print(df.isnull().sum())
+
+# 5. HANDLE MISSING VALUES (if any)
+df.dropna(inplace=True)
+
+# 6. CHECK DUPLICATES
+print("\nDuplicates:", df.duplicated().sum())
+df.drop_duplicates(inplace=True)
+
+# 7. DATE PARSING
+df['Date'] = pd.to_datetime(df['Date'])
+df.set_index('Date', inplace=True)
+df.sort_index(inplace=True)
+
+# 8. VISUALIZE STOCK PRICE OVER TIME
+plt.figure(figsize=(12,6))
+plt.plot(df['Close'], label='AAPL Closing Price')
+plt.title("AAPL Stock Price Over Time")
+plt.xlabel("Date")
+plt.ylabel("Price")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# 9. CORRELATION HEATMAP
+plt.figure(figsize=(10,6))
+sns.heatmap(df.corr(), annot=True, cmap='coolwarm')
+plt.title("Feature Correlation Heatmap")
+plt.show()
+
+# 10. FEATURE ENGINEERING
+df['MA10'] = df['Close'].rolling(window=10).mean()
+df['MA20'] = df['Close'].rolling(window=20).mean()
+df['Volatility'] = df['Close'].rolling(window=10).std()
+df['Return'] = df['Close'].pct_change()
+
+# Drop rows with NaN after rolling
+df.dropna(inplace=True)
+
+# 11. SELECT FEATURES AND TARGET
+features = ['Open', 'High', 'Low', 'Volume', 'MA10', 'MA20', 'Volatility', 'Return']
+target = 'Close'
+
+X = df[features]
+y = df[target]
+
+# 12. SCALING
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# 13. TRAIN-TEST SPLIT
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+# 14. MODEL 1: LINEAR REGRESSION
+lr = LinearRegression()
+lr.fit(X_train, y_train)
+y_pred_lr = lr.predict(X_test)
+
+# 15. MODEL 2: RANDOM FOREST
+rf = RandomForestRegressor(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+y_pred_rf = rf.predict(X_test)
+
+# 16. EVALUATE MODELS
+def evaluate_model(name, y_true, y_pred):
+    print(f"\n{name} Evaluation:")
+    print("R^2 Score:", r2_score(y_true, y_pred))
+    print("RMSE:", np.sqrt(mean_squared_error(y_true, y_pred)))
+
+evaluate_model("Linear Regression", y_test, y_pred_lr)
+evaluate_model("Random Forest", y_test, y_pred_rf)
+
+# 17. VISUAL COMPARISON
+plt.figure(figsize=(14,6))
+plt.plot(y_test.values, label='Actual Price', alpha=0.7)
+plt.plot(y_pred_rf, label='Random Forest Predicted Price', alpha=0.7)
+plt.plot(y_pred_lr, label='Linear Regression Predicted Price', alpha=0.7)
+plt.legend()
+plt.title("Actual vs Predicted Stock Prices")
+plt.show()
+
+# 18. FUTURE SCOPE COMMENT
+print("""
+Future Scope:
+1. Include sentiment analysis from financial news.
+2. Use LSTM or Transformer-based deep learning models.
+3. Incorporate macroeconomic indicators or social media trends.
+""")
+
+# 19. SAVE MODEL (optional if deploying)
+import joblib
+joblib.dump(rf, 'aapl_rf_model.pkl')
+joblib.dump(scaler, 'scaler.pkl')
+
+# 20. LOAD MODEL (for deployment test)
+# model = joblib.load('aapl_rf_model.pkl')
+# scaler = joblib.load('scaler.pkl')
